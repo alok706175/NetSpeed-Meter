@@ -21,6 +21,7 @@ namespace NetSpeedMeter.Models
         public double MeterFontSize { get; set; } = 12.0;
         public MeterDockPosition DockPosition { get; set; } = MeterDockPosition.TaskbarLeft;
         public MeterLayoutStyle LayoutStyle { get; set; } = MeterLayoutStyle.HorizontalPill;
+        public bool EnableSpeedSmoothing { get; set; } = true;
 
         public AppSettings Clone() => (AppSettings)MemberwiseClone();
     }

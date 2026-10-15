@@ -34,6 +34,9 @@ namespace NetSpeedMeter.Services
         private long _lastTimestamp;
         private bool _resetRequested = true;
 
+        private readonly SpeedSmoother _downloadSmoother = new();
+        private readonly SpeedSmoother _uploadSmoother = new();
+
         public bool IsMonitoring { get; private set; }
         public NetworkSpeed CurrentSpeed { get; private set; } = NetworkSpeed.Zero();
         public string CurrentAdapterDisplayName => _activeAdapterDisplayName;
@@ -120,6 +123,8 @@ namespace NetSpeedMeter.Services
                 _resetRequested = true;
                 _lastBytesReceived = -1;
                 _lastBytesSent = -1;
+                _downloadSmoother.Reset();
+                _uploadSmoother.Reset();
             }
         }
 
@@ -277,8 +282,15 @@ namespace NetSpeedMeter.Services
                 _lastBytesSent = currentTx;
                 _lastTimestamp = currentTimestamp;
 
-                double downloadSpeed = Math.Max(0.0, deltaRx / elapsedSeconds);
-                double uploadSpeed = Math.Max(0.0, deltaTx / elapsedSeconds);
+                double rawDl = Math.Max(0.0, deltaRx / elapsedSeconds);
+                double rawUl = Math.Max(0.0, deltaTx / elapsedSeconds);
+
+                double downloadSpeed = _settingsService.Settings.EnableSpeedSmoothing
+                    ? _downloadSmoother.Smooth(rawDl)
+                    : rawDl;
+                double uploadSpeed = _settingsService.Settings.EnableSpeedSmoothing
+                    ? _uploadSmoother.Smooth(rawUl)
+                    : rawUl;
 
                 var speedUnit = _settingsService.Settings.SpeedUnit;
                 string dlFormatted = SpeedFormatter.Format(downloadSpeed, speedUnit);

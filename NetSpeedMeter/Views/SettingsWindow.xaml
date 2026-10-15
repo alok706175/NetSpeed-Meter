@@ -178,6 +178,18 @@
                                 <ComboBoxItem Content="Always GB/s" Tag="{x:Static models:SpeedUnitMode.ForceGB}" />
                             </ComboBox>
                         </Grid>
+
+                        <!-- Speed Smoothing Toggle -->
+                        <Border Margin="0,8,0,0" Padding="0,8,0,0" BorderThickness="0,1,0,0" BorderBrush="{StaticResource CardBorder}">
+                            <StackPanel>
+                                <CheckBox Content="Smooth Speed Readings (Exponential Moving Average)"
+                                          IsChecked="{Binding EnableSpeedSmoothing}" />
+                                <TextBlock Text="Filters out micro-spikes and burst fluctuations for a smooth, steady reading."
+                                           FontSize="11"
+                                           Foreground="{StaticResource SubTextColor}"
+                                           Margin="24,2,0,0" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </Border>
 

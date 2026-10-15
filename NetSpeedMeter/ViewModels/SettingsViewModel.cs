@@ -30,6 +30,7 @@ namespace NetSpeedMeter.ViewModels
         private SpeedDisplayMode _selectedDisplayMode;
         private MeterDockPosition _selectedDockPosition;
         private MeterLayoutStyle _selectedLayoutStyle;
+        private bool _enableSpeedSmoothing;
 
         public ObservableCollection<NetworkAdapterInfo> AvailableAdapters { get; } = new();
 
@@ -117,6 +118,12 @@ namespace NetSpeedMeter.ViewModels
             set => SetProperty(ref _isMeterLocked, value);
         }
 
+        public bool EnableSpeedSmoothing
+        {
+            get => _enableSpeedSmoothing;
+            set => SetProperty(ref _enableSpeedSmoothing, value);
+        }
+
         public ICommand SaveCommand { get; }
         public ICommand CancelCommand { get; }
         public ICommand ResetPositionCommand { get; }
@@ -160,6 +167,7 @@ namespace NetSpeedMeter.ViewModels
             _selectedDisplayMode = s.DisplayMode;
             _selectedDockPosition = s.DockPosition;
             _selectedLayoutStyle = s.LayoutStyle;
+            _enableSpeedSmoothing = s.EnableSpeedSmoothing;
 
             AvailableAdapters.Clear();
             var adapters = _adapterService.GetAvailableAdapters();
@@ -201,6 +209,7 @@ namespace NetSpeedMeter.ViewModels
                 s.DisplayMode = SelectedDisplayMode;
                 s.DockPosition = SelectedDockPosition;
                 s.LayoutStyle = SelectedLayoutStyle;
+                s.EnableSpeedSmoothing = EnableSpeedSmoothing;
             });
 
             _closeWindowAction();

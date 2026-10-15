@@ -38,6 +38,7 @@ namespace NetSpeedMeter.Tests
             Assert.AreEqual(1.0, service.Settings.RefreshIntervalSeconds);
             Assert.AreEqual("auto", service.Settings.SelectedAdapterId);
             Assert.AreEqual(SpeedUnitMode.AutoBinary, service.Settings.SpeedUnit);
+            Assert.IsTrue(service.Settings.EnableSpeedSmoothing);
         }
 
         [TestMethod]
@@ -55,6 +56,7 @@ namespace NetSpeedMeter.Tests
                 s.IsMeterLocked = true;
                 s.DisplayMode = SpeedDisplayMode.DownloadOnly;
                 s.DockPosition = MeterDockPosition.TaskbarRight;
+                s.EnableSpeedSmoothing = false;
             });
 
             // Read with a new service instance to verify persistence
@@ -67,6 +69,7 @@ namespace NetSpeedMeter.Tests
             Assert.AreEqual(0.75, reloadedService.Settings.MeterOpacity);
             Assert.AreEqual(16.0, reloadedService.Settings.MeterFontSize);
             Assert.IsTrue(reloadedService.Settings.IsMeterLocked);
+            Assert.IsFalse(reloadedService.Settings.EnableSpeedSmoothing);
         }
 
         [TestMethod]
@@ -78,12 +81,14 @@ namespace NetSpeedMeter.Tests
             {
                 s.RefreshIntervalSeconds = 5.0;
                 s.Theme = AppTheme.Light;
+                s.EnableSpeedSmoothing = false;
             });
 
             service.ResetToDefaults();
 
             Assert.AreEqual(1.0, service.Settings.RefreshIntervalSeconds);
             Assert.AreEqual(AppTheme.System, service.Settings.Theme);
+            Assert.IsTrue(service.Settings.EnableSpeedSmoothing);
         }
     }
 }
