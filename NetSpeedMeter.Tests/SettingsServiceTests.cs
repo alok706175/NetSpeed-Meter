@@ -83,7 +83,7 @@ namespace NetSpeedMeter.Tests
             service.ResetToDefaults();
 
             Assert.AreEqual(1.0, service.Settings.RefreshIntervalSeconds);
-            Assert.AreEqual(AppTheme.Dark, service.Settings.Theme);
+            Assert.AreEqual(AppTheme.System, service.Settings.Theme);
         }
     }
 }

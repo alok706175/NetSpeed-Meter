@@ -148,7 +148,7 @@ namespace NetSpeedMeter.ViewModels
 
             _isLocked = _settingsService.Settings.IsMeterLocked;
             _opacity = _settingsService.Settings.MeterOpacity;
-            _isDarkTheme = _settingsService.Settings.Theme == AppTheme.Dark;
+            _isDarkTheme = ThemeHelper.ResolveIsDark(_settingsService.Settings.Theme);
             _isMonitoring = _monitorService.IsMonitoring;
             _displayMode = _settingsService.Settings.DisplayMode;
             _fontSize = _settingsService.Settings.MeterFontSize;
@@ -177,6 +177,14 @@ namespace NetSpeedMeter.ViewModels
             _settingsService.SettingsChanged += OnSettingsChanged;
         }
 
+        public void RefreshSystemTheme()
+        {
+            if (_settingsService.Settings.Theme == AppTheme.System)
+            {
+                IsDarkTheme = ThemeHelper.IsWindowsTaskbarDark();
+            }
+        }
+
         private void OnSpeedUpdated(NetworkSpeed speed)
         {
             DownloadSpeedText = speed.DownloadFormatted;
@@ -192,7 +200,7 @@ namespace NetSpeedMeter.ViewModels
         {
             IsLocked = settings.IsMeterLocked;
             Opacity = settings.MeterOpacity;
-            IsDarkTheme = settings.Theme == AppTheme.Dark;
+            IsDarkTheme = ThemeHelper.ResolveIsDark(settings.Theme);
             DisplayMode = settings.DisplayMode;
             FontSize = settings.MeterFontSize;
             LayoutStyle = settings.LayoutStyle;

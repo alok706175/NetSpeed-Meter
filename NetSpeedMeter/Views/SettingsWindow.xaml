@@ -200,7 +200,8 @@
                                       Height="30"
                                       SelectedValuePath="Tag"
                                       SelectedValue="{Binding SelectedTheme}">
-                                <ComboBoxItem Content="Dark Mode (Default)" Tag="{x:Static models:AppTheme.Dark}" />
+                                <ComboBoxItem Content="Windows Taskbar Sync (Auto)" Tag="{x:Static models:AppTheme.System}" />
+                                <ComboBoxItem Content="Dark Mode" Tag="{x:Static models:AppTheme.Dark}" />
                                 <ComboBoxItem Content="Light Mode" Tag="{x:Static models:AppTheme.Light}" />
                             </ComboBox>
                         </Grid>

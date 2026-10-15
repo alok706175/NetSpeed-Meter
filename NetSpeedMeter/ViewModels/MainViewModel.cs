@@ -94,7 +94,7 @@ namespace NetSpeedMeter.ViewModels
             _isMonitoring = _monitorService.IsMonitoring;
             _activeAdapterName = _monitorService.CurrentAdapterDisplayName;
             _isMeterVisible = _settingsService.Settings.IsMeterVisible;
-            _isDarkTheme = _settingsService.Settings.Theme == AppTheme.Dark;
+            _isDarkTheme = ThemeHelper.ResolveIsDark(_settingsService.Settings.Theme);
             _displayMode = _settingsService.Settings.DisplayMode;
 
             ToggleMonitoringCommand = new RelayCommand(() =>
@@ -119,6 +119,14 @@ namespace NetSpeedMeter.ViewModels
             _settingsService.SettingsChanged += OnSettingsChanged;
         }
 
+        public void RefreshSystemTheme()
+        {
+            if (_settingsService.Settings.Theme == AppTheme.System)
+            {
+                IsDarkTheme = ThemeHelper.IsWindowsTaskbarDark();
+            }
+        }
+
         private void OnSpeedUpdated(NetworkSpeed speed)
         {
             DownloadSpeed = speed.DownloadFormatted;
@@ -138,7 +146,7 @@ namespace NetSpeedMeter.ViewModels
         private void OnSettingsChanged(AppSettings settings)
         {
             IsMeterVisible = settings.IsMeterVisible;
-            IsDarkTheme = settings.Theme == AppTheme.Dark;
+            IsDarkTheme = ThemeHelper.ResolveIsDark(settings.Theme);
             _displayMode = settings.DisplayMode;
             OnPropertyChanged(nameof(ShowDownload));
             OnPropertyChanged(nameof(ShowUpload));

@@ -178,6 +178,18 @@ namespace NetSpeedMeter
                 });
             };
 
+            Microsoft.Win32.SystemEvents.UserPreferenceChanged += (s, ev) =>
+            {
+                if (ev.Category == Microsoft.Win32.UserPreferenceCategory.General || ev.Category == Microsoft.Win32.UserPreferenceCategory.Window)
+                {
+                    Dispatcher.InvokeAsync(() =>
+                    {
+                        _meterViewModel?.RefreshSystemTheme();
+                        _mainViewModel?.RefreshSystemTheme();
+                    });
+                }
+            };
+
             _trayService.Initialize(
                 RestoreMainWindow,
                 ToggleFloatingMeter,

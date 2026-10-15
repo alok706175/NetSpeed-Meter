@@ -35,6 +35,7 @@ namespace NetSpeedMeter.Views
             SizeChanged += OnSizeChanged;
             SourceInitialized += OnSourceInitialized;
             SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
+            SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
 
             _topmostTimer = new System.Windows.Threading.DispatcherTimer
             {
@@ -75,6 +76,7 @@ namespace NetSpeedMeter.Views
         private IntPtr HwndMessageHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
             const int WM_DPICHANGED = 0x02E0;
+            const int WM_SETTINGCHANGE = 0x001A;
 
             if (_taskbarCreatedMsg != 0 && (uint)msg == _taskbarCreatedMsg)
             {
@@ -84,6 +86,10 @@ namespace NetSpeedMeter.Views
             {
                 Dispatcher.InvokeAsync(() => _positionService.ApplySavedOrCalculatedPosition(this));
             }
+            else if (msg == WM_SETTINGCHANGE)
+            {
+                Dispatcher.InvokeAsync(() => ViewModel.RefreshSystemTheme());
+            }
 
             return IntPtr.Zero;
         }
@@ -91,6 +97,14 @@ namespace NetSpeedMeter.Views
         private void OnDisplaySettingsChanged(object? sender, EventArgs e)
         {
             Dispatcher.InvokeAsync(() => _positionService.ApplySavedOrCalculatedPosition(this));
+        }
+
+        private void OnUserPreferenceChanged(object? sender, UserPreferenceChangedEventArgs e)
+        {
+            if (e.Category == UserPreferenceCategory.General || e.Category == UserPreferenceCategory.Window)
+            {
+                Dispatcher.InvokeAsync(() => ViewModel.RefreshSystemTheme());
+            }
         }
         private void OnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
@@ -127,6 +141,7 @@ namespace NetSpeedMeter.Views
             _topmostTimer.Stop();
             SizeChanged -= OnSizeChanged;
             SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
+            SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
             _hwndSource?.RemoveHook(HwndMessageHook);
             base.OnClosed(e);
         }

@@ -11,7 +11,7 @@ namespace NetSpeedMeter.Models
         public double RefreshIntervalSeconds { get; set; } = 1.0;
         public string SelectedAdapterId { get; set; } = "auto";
         public SpeedUnitMode SpeedUnit { get; set; } = SpeedUnitMode.AutoBinary;
-        public AppTheme Theme { get; set; } = AppTheme.Dark;
+        public AppTheme Theme { get; set; } = AppTheme.System;
         public double MeterOpacity { get; set; } = 0.92;
         public bool IsMeterLocked { get; set; } = true;
         public double? MeterCustomLeft { get; set; } = null;
