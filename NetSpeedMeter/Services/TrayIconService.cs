@@ -26,6 +26,7 @@ namespace NetSpeedMeter.Services
         private Action? _exitAppAction;
 
         private Drawing.Icon? _createdIcon;
+        private string _lastTooltip = string.Empty;
 
         public TrayIconService(ISettingsService settingsService, IStartupService startupService)
         {
@@ -127,6 +128,12 @@ namespace NetSpeedMeter.Services
                     tooltip = tooltip.Substring(0, 63);
                 }
 
+                if (string.Equals(_lastTooltip, tooltip, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                _lastTooltip = tooltip;
                 _notifyIcon.Text = tooltip;
             }
             catch

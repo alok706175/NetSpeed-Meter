@@ -6,57 +6,97 @@ namespace NetSpeedMeter.Helpers
 {
     public static class SpeedFormatter
     {
+        private const string ZeroB = "0 B/s";
+        private const string ZeroKB = "0.0 KB/s";
+        private const string ZeroMB = "0.00 MB/s";
+        private const string ZeroGB = "0.000 GB/s";
+
+        private const string SuffixB = " B/s";
+        private const string SuffixKB = " KB/s";
+        private const string SuffixMB = " MB/s";
+        private const string SuffixGB = " GB/s";
+
         public static string Format(double bytesPerSecond, SpeedUnitMode mode)
         {
             if (bytesPerSecond <= 0 || double.IsNaN(bytesPerSecond) || double.IsInfinity(bytesPerSecond))
             {
                 return mode switch
                 {
-                    SpeedUnitMode.ForceKB => "0.0 KB/s",
-                    SpeedUnitMode.ForceMB => "0.00 MB/s",
-                    SpeedUnitMode.ForceGB => "0.000 GB/s",
-                    _ => "0 B/s"
+                    SpeedUnitMode.ForceKB => ZeroKB,
+                    SpeedUnitMode.ForceMB => ZeroMB,
+                    SpeedUnitMode.ForceGB => ZeroGB,
+                    _ => ZeroB
                 };
             }
 
             double baseUnit = mode == SpeedUnitMode.AutoDecimal ? 1000.0 : 1024.0;
 
+            double valueToFormat;
+            string format;
+            string suffix;
+
             switch (mode)
             {
                 case SpeedUnitMode.ForceKB:
-                    return string.Format(CultureInfo.InvariantCulture, "{0:F1} KB/s", bytesPerSecond / baseUnit);
+                    valueToFormat = bytesPerSecond / baseUnit;
+                    format = "F1";
+                    suffix = SuffixKB;
+                    break;
 
                 case SpeedUnitMode.ForceMB:
-                    return string.Format(CultureInfo.InvariantCulture, "{0:F2} MB/s", bytesPerSecond / (baseUnit * baseUnit));
+                    valueToFormat = bytesPerSecond / (baseUnit * baseUnit);
+                    format = "F2";
+                    suffix = SuffixMB;
+                    break;
 
                 case SpeedUnitMode.ForceGB:
-                    return string.Format(CultureInfo.InvariantCulture, "{0:F3} GB/s", bytesPerSecond / (baseUnit * baseUnit * baseUnit));
+                    valueToFormat = bytesPerSecond / (baseUnit * baseUnit * baseUnit);
+                    format = "F3";
+                    suffix = SuffixGB;
+                    break;
 
                 case SpeedUnitMode.AutoDecimal:
                 case SpeedUnitMode.AutoBinary:
                 default:
                     if (bytesPerSecond < baseUnit)
                     {
-                        return string.Format(CultureInfo.InvariantCulture, "{0:F0} B/s", bytesPerSecond);
+                        valueToFormat = bytesPerSecond;
+                        format = "F0";
+                        suffix = SuffixB;
                     }
                     else if (bytesPerSecond < baseUnit * baseUnit)
                     {
                         double kb = bytesPerSecond / baseUnit;
-                        return kb >= 100
-                            ? string.Format(CultureInfo.InvariantCulture, "{0:F0} KB/s", kb)
-                            : string.Format(CultureInfo.InvariantCulture, "{0:F1} KB/s", kb);
+                        valueToFormat = kb;
+                        format = kb >= 100 ? "F0" : "F1";
+                        suffix = SuffixKB;
                     }
                     else if (bytesPerSecond < baseUnit * baseUnit * baseUnit)
                     {
-                        double mb = bytesPerSecond / (baseUnit * baseUnit);
-                        return string.Format(CultureInfo.InvariantCulture, "{0:F2} MB/s", mb);
+                        valueToFormat = bytesPerSecond / (baseUnit * baseUnit);
+                        format = "F2";
+                        suffix = SuffixMB;
                     }
                     else
                     {
-                        double gb = bytesPerSecond / (baseUnit * baseUnit * baseUnit);
-                        return string.Format(CultureInfo.InvariantCulture, "{0:F2} GB/s", gb);
+                        valueToFormat = bytesPerSecond / (baseUnit * baseUnit * baseUnit);
+                        format = "F2";
+                        suffix = SuffixGB;
                     }
+                    break;
             }
+
+            // Zero-allocation buffer on the stack (no GC heap allocations)
+            Span<char> buffer = stackalloc char[32];
+            if (valueToFormat.TryFormat(buffer, out int charsWritten, format, CultureInfo.InvariantCulture))
+            {
+                suffix.AsSpan().CopyTo(buffer.Slice(charsWritten));
+                int totalLength = charsWritten + suffix.Length;
+                return new string(buffer.Slice(0, totalLength));
+            }
+
+            // Fallback (buffer safeguard)
+            return string.Create(CultureInfo.InvariantCulture, $"{valueToFormat.ToString(format, CultureInfo.InvariantCulture)}{suffix}");
         }
     }
 }
