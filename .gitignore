@@ -1,0 +1,25 @@
+## Visual Studio / .NET
+[Bb]in/
+[Oo]bj/
+publish/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# IDE files
+.vs/
+.idea/
+.vscode/
+
+# Build results
+[Dd]ebug/
+TestResults/
+*.tmp
+*.log
+
+# Windows caches
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/

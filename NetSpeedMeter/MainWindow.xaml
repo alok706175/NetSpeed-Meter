@@ -1,0 +1,272 @@
+<Window x:Class="NetSpeedMeter.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:viewModels="clr-namespace:NetSpeedMeter.ViewModels"
+        mc:Ignorable="d"
+        Title="NetSpeed Meter"
+        Height="540"
+        Width="440"
+        WindowStartupLocation="CenterScreen"
+        FontFamily="Segoe UI, Segoe UI Variable Display"
+        Icon="Assets/app.ico"
+        d:DataContext="{d:DesignInstance viewModels:MainViewModel}">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+        <!-- Dark Theme Resources -->
+        <SolidColorBrush x:Key="WindowBgDark" Color="#0B0E14" />
+        <SolidColorBrush x:Key="CardBgDark" Color="#131822" />
+        <SolidColorBrush x:Key="CardBorderDark" Color="#222B3D" />
+        <SolidColorBrush x:Key="TextPrimaryDark" Color="#F8FAFC" />
+        <SolidColorBrush x:Key="TextSecondaryDark" Color="#94A3B8" />
+
+        <!-- Light Theme Resources -->
+        <SolidColorBrush x:Key="WindowBgLight" Color="#F1F5F9" />
+        <SolidColorBrush x:Key="CardBgLight" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="CardBorderLight" Color="#E2E8F0" />
+        <SolidColorBrush x:Key="TextPrimaryLight" Color="#0F172A" />
+        <SolidColorBrush x:Key="TextSecondaryLight" Color="#64748B" />
+
+        <!-- Accents -->
+        <SolidColorBrush x:Key="DlAccent" Color="#00D1FF" />
+        <SolidColorBrush x:Key="UlAccent" Color="#FF9900" />
+        <SolidColorBrush x:Key="SuccessGreen" Color="#10B981" />
+        <SolidColorBrush x:Key="MutedRed" Color="#EF4444" />
+        <SolidColorBrush x:Key="PrimaryBtnBg" Color="#1E293B" />
+        <SolidColorBrush x:Key="PrimaryBtnBorder" Color="#334155" />
+
+        <!-- Dynamic Theme Style for Main Window -->
+        <Style x:Key="MainWindowStyle" TargetType="Window">
+            <Setter Property="Background" Value="{StaticResource WindowBgDark}" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryDark}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsDarkTheme}" Value="False">
+                    <Setter Property="Background" Value="{StaticResource WindowBgLight}" />
+                    <Setter Property="Foreground" Value="{StaticResource TextPrimaryLight}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="SpeedCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource CardBgDark}" />
+            <Setter Property="BorderBrush" Value="{StaticResource CardBorderDark}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="18,14" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsDarkTheme}" Value="False">
+                    <Setter Property="Background" Value="{StaticResource CardBgLight}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource CardBorderLight}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="DashboardButton" TargetType="Button">
+            <Setter Property="Height" Value="38" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="Background" Value="{StaticResource PrimaryBtnBg}" />
+            <Setter Property="Foreground" Value="#F8FAFC" />
+            <Setter Property="BorderBrush" Value="{StaticResource PrimaryBtnBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#2D3C54" />
+                                <Setter TargetName="border" Property="BorderBrush" Value="#475569" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#1E293B" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Window.Style>
+        <StaticResource ResourceKey="MainWindowStyle" />
+    </Window.Style>
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <!-- Title Bar Area -->
+            <RowDefinition Height="Auto" />
+            <!-- Download & Upload Cards -->
+            <RowDefinition Height="Auto" />
+            <!-- Status & Adapter Label -->
+            <RowDefinition Height="Auto" />
+            <!-- Controls & Action Buttons -->
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock Text="NETSPEED METER"
+                       FontSize="18"
+                       FontWeight="Bold"
+                       Foreground="{StaticResource TextPrimaryDark}">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsDarkTheme}" Value="False">
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryLight}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+            <TextBlock Text="Windows 11 Live Traffic Monitor"
+                       FontSize="12"
+                       Foreground="{StaticResource TextSecondaryDark}"
+                       Margin="0,2,0,0" />
+        </StackPanel>
+
+        <!-- Large Speed Values -->
+        <StackPanel Grid.Row="1">
+            <!-- DOWNLOAD CARD -->
+            <Border Style="{StaticResource SpeedCardStyle}"
+                    Visibility="{Binding ShowDownload, Converter={StaticResource BoolToVis}}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="DOWNLOAD"
+                                   FontSize="11"
+                                   FontWeight="Bold"
+                                   Foreground="{StaticResource DlAccent}"
+                                   Margin="0,0,0,2" />
+                        <TextBlock Text="{Binding DownloadSpeed}"
+                                   FontSize="28"
+                                   FontWeight="Bold"
+                                   FontFamily="Segoe UI, Segoe UI Variable Display, Consolas" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="1"
+                               Text="↓"
+                               FontSize="32"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource DlAccent}"
+                               VerticalAlignment="Center"
+                               Opacity="0.8" />
+                </Grid>
+            </Border>
+
+            <!-- UPLOAD CARD -->
+            <Border Style="{StaticResource SpeedCardStyle}"
+                    Visibility="{Binding ShowUpload, Converter={StaticResource BoolToVis}}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="UPLOAD"
+                                   FontSize="11"
+                                   FontWeight="Bold"
+                                   Foreground="{StaticResource UlAccent}"
+                                   Margin="0,0,0,2" />
+                        <TextBlock Text="{Binding UploadSpeed}"
+                                   FontSize="28"
+                                   FontWeight="Bold"
+                                   FontFamily="Segoe UI, Segoe UI Variable Display, Consolas" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="1"
+                               Text="↑"
+                               FontSize="32"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource UlAccent}"
+                               VerticalAlignment="Center"
+                               Opacity="0.8" />
+                </Grid>
+            </Border>
+        </StackPanel>
+
+        <!-- Monitoring Status & Active Adapter -->
+        <Border Grid.Row="2"
+                Margin="0,4,0,16"
+                Padding="12,8"
+                CornerRadius="6"
+                Background="#10141D">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsDarkTheme}" Value="False">
+                            <Setter Property="Background" Value="#E2E8F0" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Monitoring Status Indicator -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Ellipse Width="8" Height="8" Margin="0,0,6,0">
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse">
+                                <Setter Property="Fill" Value="{StaticResource SuccessGreen}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMonitoring}" Value="False">
+                                        <Setter Property="Fill" Value="{StaticResource MutedRed}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                    </Ellipse>
+                    <TextBlock Text="{Binding MonitoringStatusText}"
+                               FontWeight="SemiBold"
+                               FontSize="12" />
+                </StackPanel>
+
+                <!-- Active Network Adapter secondary label -->
+                <TextBlock Grid.Column="1"
+                           Text="{Binding ActiveAdapterName, StringFormat='{}Adapter: {0}'}"
+                           FontSize="11"
+                           Foreground="{StaticResource TextSecondaryDark}"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"
+                           MaxWidth="200" />
+            </Grid>
+        </Border>
+
+        <!-- Action Controls -->
+        <StackPanel Grid.Row="3" VerticalAlignment="Bottom">
+            <!-- Start / Stop Monitoring Button -->
+            <Button Content="{Binding ToggleMonitoringButtonText}"
+                    Command="{Binding ToggleMonitoringCommand}"
+                    Style="{StaticResource DashboardButton}" />
+
+            <!-- Settings Button -->
+            <Button Content="Settings"
+                    Command="{Binding OpenSettingsCommand}"
+                    Style="{StaticResource DashboardButton}" />
+
+            <!-- Minimize to Tray Button -->
+            <Button Content="Minimize to Tray"
+                    Command="{Binding MinimizeToTrayCommand}"
+                    Style="{StaticResource DashboardButton}" />
+        </StackPanel>
+    </Grid>
+</Window>
