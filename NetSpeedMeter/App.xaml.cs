@@ -11,7 +11,10 @@ namespace NetSpeedMeter
     public partial class App : Application
     {
         private const string MutexName = "Local\\NetSpeedMeter_SingleInstance_Mutex";
+        private const string WakeEventName = "Local\\NetSpeedMeter_Wake_Event";
         private Mutex? _singleInstanceMutex;
+        private EventWaitHandle? _wakeEvent;
+        private RegisteredWaitHandle? _registeredWait;
 
         private ISettingsService? _settingsService;
         private IStartupService? _startupService;
@@ -32,13 +35,43 @@ namespace NetSpeedMeter
             _singleInstanceMutex = new Mutex(true, MutexName, out bool isNewInstance);
             if (!isNewInstance)
             {
-                MessageBox.Show(
-                    "NetSpeed Meter is already running. Check your taskbar and notification area.",
-                    "NetSpeed Meter",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                bool startMinimized = e.Args.Length > 0 &&
+                                      string.Equals(e.Args[0], "--minimized", StringComparison.OrdinalIgnoreCase);
+
+                if (!startMinimized)
+                {
+                    try
+                    {
+                        using var wakeEvent = EventWaitHandle.OpenExisting(WakeEventName);
+                        wakeEvent.Set();
+                    }
+                    catch
+                    {
+                    }
+                }
+
                 Shutdown();
                 return;
+            }
+
+            try
+            {
+                _wakeEvent = new EventWaitHandle(false, EventResetMode.AutoReset, WakeEventName);
+                _registeredWait = ThreadPool.RegisterWaitForSingleObject(
+                    _wakeEvent,
+                    (state, timedOut) =>
+                    {
+                        if (!timedOut)
+                        {
+                            Dispatcher.InvokeAsync(RestoreMainWindow);
+                        }
+                    },
+                    null,
+                    -1,
+                    false);
+            }
+            catch
+            {
             }
 
             base.OnStartup(e);
@@ -315,6 +348,26 @@ namespace NetSpeedMeter
         {
             _trayService?.Dispose();
             _monitorService?.Dispose();
+
+            if (_registeredWait != null)
+            {
+                try
+                {
+                    _registeredWait.Unregister(null);
+                }
+                catch { }
+                _registeredWait = null;
+            }
+
+            if (_wakeEvent != null)
+            {
+                try
+                {
+                    _wakeEvent.Dispose();
+                }
+                catch { }
+                _wakeEvent = null;
+            }
 
             if (_singleInstanceMutex != null)
             {
