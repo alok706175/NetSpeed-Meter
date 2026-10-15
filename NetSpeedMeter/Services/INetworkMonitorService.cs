@@ -16,6 +16,6 @@ namespace NetSpeedMeter.Services
         void Start();
         void Stop();
         void ResetBaseline();
-        void ReevaluateAdapter();
+        void ReevaluateAdapter(bool isSeamless = false);
     }
 }

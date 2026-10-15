@@ -41,6 +41,15 @@ $publishDir = "$PSScriptRoot\publish\NetSpeedMeter"
 if (-not (Test-Path $publishDir)) { New-Item -ItemType Directory -Force -Path $publishDir | Out-Null }
 Copy-Item -Path "$installDir\*" -Destination $publishDir -Recurse -Force
 
+# Sign with local certificate for Smart App Control compatibility
+$devCert = Get-Item "Cert:\CurrentUser\My\AC7EDAFF37B1B5DCF2478179D8D1BFD68F0467E0" -ErrorAction SilentlyContinue
+if ($devCert) {
+    Set-AuthenticodeSignature -Certificate $devCert -FilePath "$installDir\NetSpeedMeter.exe" -ErrorAction SilentlyContinue | Out-Null
+    Set-AuthenticodeSignature -Certificate $devCert -FilePath "$installDir\NetSpeedMeter.dll" -ErrorAction SilentlyContinue | Out-Null
+    Set-AuthenticodeSignature -Certificate $devCert -FilePath "$publishDir\NetSpeedMeter.exe" -ErrorAction SilentlyContinue | Out-Null
+    Set-AuthenticodeSignature -Certificate $devCert -FilePath "$publishDir\NetSpeedMeter.dll" -ErrorAction SilentlyContinue | Out-Null
+}
+
 # Create Uninstall Script
 $uninstallScript = @"
 `$ErrorActionPreference = "SilentlyContinue"

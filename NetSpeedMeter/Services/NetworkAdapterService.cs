@@ -97,6 +97,7 @@ namespace NetSpeedMeter.Services
                             return false;
                         }
                     })
+                    .ThenByDescending(ni => !IsVirtualOrVpn(ni))
                     .ThenByDescending(ni => ni.NetworkInterfaceType == NetworkInterfaceType.Ethernet)
                     .ThenByDescending(ni => ni.NetworkInterfaceType == NetworkInterfaceType.Wireless80211)
                     .ThenByDescending(ni =>
@@ -119,6 +120,17 @@ namespace NetSpeedMeter.Services
             {
                 return null;
             }
+        }
+
+        private static bool IsVirtualOrVpn(NetworkInterface ni)
+        {
+            string desc = (ni.Description ?? string.Empty).ToLowerInvariant();
+            string name = (ni.Name ?? string.Empty).ToLowerInvariant();
+
+            return desc.Contains("virtual") || desc.Contains("hyper-v") || desc.Contains("vmware") ||
+                   desc.Contains("virtualbox") || desc.Contains("tap-") || desc.Contains("tailscale") ||
+                   desc.Contains("wsl") || desc.Contains("vethernet") || desc.Contains("bluetooth") ||
+                   name.Contains("vethernet") || name.Contains("wsl");
         }
     }
 }

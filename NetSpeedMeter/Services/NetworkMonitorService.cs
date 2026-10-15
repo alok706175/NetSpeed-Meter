@@ -24,6 +24,7 @@ namespace NetSpeedMeter.Services
         private CancellationTokenSource? _cts;
         private Task? _monitorTask;
         private readonly object _syncLock = new();
+        private readonly SemaphoreSlim _wakeSignal = new(0, 1);
 
         private NetworkInterface? _activeInterface;
         private string _activeInterfaceId = string.Empty;
@@ -33,6 +34,7 @@ namespace NetSpeedMeter.Services
         private long _lastBytesSent = -1;
         private long _lastTimestamp;
         private bool _resetRequested = true;
+        private int _periodicCheckCounter;
 
         private readonly SpeedSmoother _downloadSmoother = new();
         private readonly SpeedSmoother _uploadSmoother = new();
@@ -57,7 +59,7 @@ namespace NetSpeedMeter.Services
 
             _settingsService.SettingsChanged += OnSettingsChanged;
 
-            ReevaluateAdapter();
+            ReevaluateAdapter(isSeamless: false);
         }
 
         public void Start()
@@ -100,6 +102,7 @@ namespace NetSpeedMeter.Services
             try
             {
                 ctsToCancel?.Cancel();
+                WakeMonitoringLoop();
                 taskToWait?.Wait(500);
             }
             catch
@@ -128,31 +131,104 @@ namespace NetSpeedMeter.Services
             }
         }
 
-        public void ReevaluateAdapter()
+        private void WakeMonitoringLoop()
+        {
+            try
+            {
+                if (_wakeSignal.CurrentCount == 0)
+                {
+                    _wakeSignal.Release();
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+
+        private void SwitchAdapter(NetworkInterface newInterface, bool isSeamless)
         {
             lock (_syncLock)
             {
+                if (_activeInterface != null &&
+                    _activeInterface.Id == newInterface.Id &&
+                    _activeInterface.OperationalStatus == OperationalStatus.Up)
+                {
+                    return;
+                }
+
+                _activeInterface = newInterface;
                 string targetId = _settingsService.Settings.SelectedAdapterId;
-                NetworkInterface? ni = _adapterService.FindInterface(targetId);
+                _activeAdapterDisplayName = (targetId == "auto" || string.IsNullOrEmpty(targetId))
+                    ? $"{newInterface.Name} (Auto-detected)"
+                    : newInterface.Name;
 
-                _activeInterface = ni;
-                _activeInterfaceId = targetId;
-
-                if (ni != null)
+                try
                 {
-                    _activeAdapterDisplayName = targetId == "auto"
-                        ? $"{ni.Name} (Auto-detected)"
-                        : ni.Name;
+                    var ipStats = newInterface.GetIPStatistics();
+                    long rx = ipStats.BytesReceived;
+                    long tx = ipStats.BytesSent;
+                    if (rx == 0 && tx == 0 && newInterface.Supports(NetworkInterfaceComponent.IPv4))
+                    {
+                        var ipv4Stats = newInterface.GetIPv4Statistics();
+                        rx = ipv4Stats.BytesReceived;
+                        tx = ipv4Stats.BytesSent;
+                    }
+
+                    _lastBytesReceived = rx;
+                    _lastBytesSent = tx;
+                    _lastTimestamp = Stopwatch.GetTimestamp();
+                    _resetRequested = false;
                 }
-                else
+                catch
                 {
-                    _activeAdapterDisplayName = "No Active Connection";
+                    _resetRequested = true;
                 }
 
-                ResetBaseline();
+                if (!isSeamless)
+                {
+                    _downloadSmoother.Reset();
+                    _uploadSmoother.Reset();
+                    CurrentSpeed = NetworkSpeed.Zero(_activeAdapterDisplayName);
+                    SpeedUpdated?.Invoke(CurrentSpeed);
+                }
             }
 
             ActiveAdapterChanged?.Invoke(_activeAdapterDisplayName);
+            WakeMonitoringLoop();
+        }
+
+        public void ReevaluateAdapter(bool isSeamless = false)
+        {
+            string targetId;
+            lock (_syncLock)
+            {
+                targetId = _settingsService.Settings.SelectedAdapterId;
+                _activeInterfaceId = targetId;
+            }
+
+            NetworkInterface? ni = _adapterService.FindInterface(targetId);
+
+            if (ni != null)
+            {
+                SwitchAdapter(ni, isSeamless);
+            }
+            else
+            {
+                lock (_syncLock)
+                {
+                    _activeInterface = null;
+                    _activeAdapterDisplayName = "No Active Connection";
+                    _lastBytesReceived = -1;
+                    _lastBytesSent = -1;
+                    _resetRequested = true;
+                    _downloadSmoother.Reset();
+                    _uploadSmoother.Reset();
+                    CurrentSpeed = NetworkSpeed.Zero(_activeAdapterDisplayName);
+                    SpeedUpdated?.Invoke(CurrentSpeed);
+                }
+
+                ActiveAdapterChanged?.Invoke(_activeAdapterDisplayName);
+            }
         }
 
         private async Task MonitoringLoopAsync(CancellationToken cancellationToken)
@@ -166,7 +242,12 @@ namespace NetSpeedMeter.Services
                     double intervalSeconds = Math.Max(0.5, Math.Min(10.0, _settingsService.Settings.RefreshIntervalSeconds));
                     int delayMs = (int)(intervalSeconds * 1000);
 
-                    await Task.Delay(delayMs, cancellationToken).ConfigureAwait(false);
+                    bool wasWoken = await _wakeSignal.WaitAsync(delayMs, cancellationToken).ConfigureAwait(false);
+                    if (wasWoken)
+                    {
+                        // Immediate adapter transition: pause 150ms to accumulate byte counters on new adapter, then sample right away
+                        await Task.Delay(150, cancellationToken).ConfigureAwait(false);
+                    }
                 }
                 catch (OperationCanceledException)
                 {
@@ -192,18 +273,20 @@ namespace NetSpeedMeter.Services
         {
             lock (_syncLock)
             {
-                // Ensure active interface is valid
-                if (_activeInterface == null || _activeInterface.OperationalStatus != OperationalStatus.Up)
+                // In auto mode, check if current adapter went down OR if a higher priority adapter became available
+                bool isAutoMode = _activeInterfaceId == "auto" || string.IsNullOrEmpty(_activeInterfaceId);
+                bool adapterNeedsCheck = _activeInterface == null ||
+                                         _activeInterface.OperationalStatus != OperationalStatus.Up ||
+                                         (isAutoMode && ++_periodicCheckCounter % 3 == 0);
+
+                if (isAutoMode && adapterNeedsCheck)
                 {
-                    // Attempt to re-find active interface if in auto mode
-                    if (_activeInterfaceId == "auto" || string.IsNullOrEmpty(_activeInterfaceId))
+                    var bestInterface = _adapterService.FindBestActiveInterface();
+                    if (bestInterface != null && (_activeInterface == null || _activeInterface.Id != bestInterface.Id || _activeInterface.OperationalStatus != OperationalStatus.Up))
                     {
-                        _activeInterface = _adapterService.FindBestActiveInterface();
-                        if (_activeInterface != null)
-                        {
-                            _activeAdapterDisplayName = $"{_activeInterface.Name} (Auto-detected)";
-                            ActiveAdapterChanged?.Invoke(_activeAdapterDisplayName);
-                        }
+                        // Seamlessly transition to the newly available / superior adapter
+                        SwitchAdapter(bestInterface, isSeamless: true);
+                        return;
                     }
                 }
 
@@ -234,7 +317,7 @@ namespace NetSpeedMeter.Services
                 }
                 catch
                 {
-                    // If interface was reset or removed, re-evaluate next tick
+                    // Interface query failed (e.g. disconnected) - re-evaluate next tick
                     _resetRequested = true;
                     CurrentSpeed = NetworkSpeed.Zero(_activeAdapterDisplayName);
                     SpeedUpdated?.Invoke(CurrentSpeed);
@@ -317,20 +400,20 @@ namespace NetSpeedMeter.Services
             // If the user picked a different adapter, switch and reset baseline
             if (settings.SelectedAdapterId != _activeInterfaceId)
             {
-                ReevaluateAdapter();
+                ReevaluateAdapter(isSeamless: false);
             }
         }
 
         private void OnNetworkChanged(object? sender, EventArgs e)
         {
             // System network route / IP address changed
-            ReevaluateAdapter();
+            ReevaluateAdapter(isSeamless: true);
         }
 
         private void OnNetworkAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs e)
         {
             // Network cable plugged in or unplugged / Wi-Fi disconnected
-            ReevaluateAdapter();
+            ReevaluateAdapter(isSeamless: true);
         }
 
         private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
@@ -339,7 +422,7 @@ namespace NetSpeedMeter.Services
             {
                 // When resuming from sleep or hibernation, reset baseline to prevent false speed spikes
                 ResetBaseline();
-                ReevaluateAdapter();
+                ReevaluateAdapter(isSeamless: false);
             }
         }
 
@@ -353,6 +436,7 @@ namespace NetSpeedMeter.Services
             _settingsService.SettingsChanged -= OnSettingsChanged;
 
             _cts?.Dispose();
+            _wakeSignal.Dispose();
         }
     }
 }
