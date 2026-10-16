@@ -43,9 +43,20 @@ namespace NetSpeedMeter.Tests
         }
 
         [TestMethod]
-        public void Smooth_TrafficStopped_DecaysAndSnapsToZeroPromptly()
+        public void Smooth_TrafficStopped_SnapsToZeroPromptlyWithoutLag()
         {
             var smoother = new SpeedSmoother(0.65);
+            smoother.Smooth(10_000_000); // active transfer
+
+            // When traffic stops, snaps cleanly to 0.0 immediately without fake decay cycles
+            double tick1 = smoother.Smooth(0);
+            Assert.AreEqual(0.0, tick1, "Should snap to 0.0 immediately when traffic stops.");
+        }
+
+        [TestMethod]
+        public void Smooth_TrafficStopped_WithDecayMode_DecaysAndSnapsToZero()
+        {
+            var smoother = new SpeedSmoother(0.65, snapZeroImmediately: false);
             smoother.Smooth(10_000_000); // active transfer
 
             // 1st tick of 0 B/s: decays smoothly
@@ -54,7 +65,7 @@ namespace NetSpeedMeter.Tests
 
             // 2nd tick of 0 B/s: snaps cleanly to 0.0
             double tick2 = smoother.Smooth(0);
-            Assert.AreEqual(0.0, tick2, "Should snap to 0.0 by second consecutive zero tick.");
+            Assert.AreEqual(0.0, tick2, "Should snap to 0.0 by second consecutive zero tick in decay mode.");
         }
 
         [TestMethod]

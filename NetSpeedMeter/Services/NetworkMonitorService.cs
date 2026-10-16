@@ -129,6 +129,8 @@ namespace NetSpeedMeter.Services
                 _downloadSmoother.Reset();
                 _uploadSmoother.Reset();
             }
+
+            WakeMonitoringLoop();
         }
 
         private void WakeMonitoringLoop()
@@ -339,18 +341,6 @@ namespace NetSpeedMeter.Services
                     return;
                 }
 
-                // Handle counter wrap or interface resets
-                if (currentRx < _lastBytesReceived || currentTx < _lastBytesSent)
-                {
-                    _lastBytesReceived = currentRx;
-                    _lastBytesSent = currentTx;
-                    _lastTimestamp = currentTimestamp;
-
-                    CurrentSpeed = NetworkSpeed.Zero(_activeAdapterDisplayName);
-                    SpeedUpdated?.Invoke(CurrentSpeed);
-                    return;
-                }
-
                 double elapsedSeconds = (double)(currentTimestamp - _lastTimestamp) / Stopwatch.Frequency;
                 if (elapsedSeconds <= 0.05)
                 {
@@ -358,12 +348,38 @@ namespace NetSpeedMeter.Services
                     return;
                 }
 
-                long deltaRx = currentRx - _lastBytesReceived;
-                long deltaTx = currentTx - _lastBytesSent;
+                // If elapsed time is unusually large (e.g. system suspended, sleep wake, or thread freeze),
+                // re-synchronize baseline immediately without calculating across the sleep gap to prevent false spikes.
+                double intervalSeconds = Math.Max(0.5, Math.Min(10.0, _settingsService.Settings.RefreshIntervalSeconds));
+                if (elapsedSeconds > Math.Max(5.0, intervalSeconds * 3.0))
+                {
+                    _lastBytesReceived = currentRx;
+                    _lastBytesSent = currentTx;
+                    _lastTimestamp = currentTimestamp;
+                    _resetRequested = false;
+                    _downloadSmoother.Reset();
+                    _uploadSmoother.Reset();
+
+                    CurrentSpeed = NetworkSpeed.Zero(_activeAdapterDisplayName);
+                    SpeedUpdated?.Invoke(CurrentSpeed);
+                    return;
+                }
+
+                // Calculate delta with 32-bit network driver counter rollover support
+                bool rxValid = TryCalculateDelta(currentRx, _lastBytesReceived, elapsedSeconds, out long deltaRx);
+                bool txValid = TryCalculateDelta(currentTx, _lastBytesSent, elapsedSeconds, out long deltaTx);
 
                 _lastBytesReceived = currentRx;
                 _lastBytesSent = currentTx;
                 _lastTimestamp = currentTimestamp;
+
+                if (!rxValid || !txValid)
+                {
+                    // Interface reset or unrecoverable counter jump - baseline reset
+                    CurrentSpeed = NetworkSpeed.Zero(_activeAdapterDisplayName);
+                    SpeedUpdated?.Invoke(CurrentSpeed);
+                    return;
+                }
 
                 double rawDl = Math.Max(0.0, deltaRx / elapsedSeconds);
                 double rawUl = Math.Max(0.0, deltaTx / elapsedSeconds);
@@ -395,6 +411,39 @@ namespace NetSpeedMeter.Services
             }
         }
 
+        /// <summary>
+        /// Calculates byte delta between successive samples, handling 32-bit counter rollovers
+        /// commonly seen in Windows network adapter drivers (wrapping at ~4.29 GB).
+        /// </summary>
+        internal static bool TryCalculateDelta(long current, long last, double elapsedSeconds, out long delta)
+        {
+            if (current >= last)
+            {
+                delta = current - last;
+                return true;
+            }
+
+            // Check if this is a 32-bit counter rollover
+            if (last <= uint.MaxValue && current <= uint.MaxValue)
+            {
+                long wrappedDelta = ((long)uint.MaxValue - last) + current + 1;
+                if (wrappedDelta >= 0 && elapsedSeconds > 0)
+                {
+                    double bytesPerSec = wrappedDelta / elapsedSeconds;
+                    const double MaxPlausibleRate = 12.5 * 1024 * 1024 * 1024; // 100 Gbps sanity threshold
+                    if (bytesPerSec <= MaxPlausibleRate)
+                    {
+                        delta = wrappedDelta;
+                        return true;
+                    }
+                }
+            }
+
+            // Interface was reset or counter wrapped unexpectedly
+            delta = 0;
+            return false;
+        }
+
         private void OnSettingsChanged(AppSettings settings)
         {
             // If the user picked a different adapter, switch and reset baseline
@@ -418,7 +467,11 @@ namespace NetSpeedMeter.Services
 
         private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
         {
-            if (e.Mode == PowerModes.Resume)
+            if (e.Mode == PowerModes.Suspend)
+            {
+                ResetBaseline();
+            }
+            else if (e.Mode == PowerModes.Resume)
             {
                 // When resuming from sleep or hibernation, reset baseline to prevent false speed spikes
                 ResetBaseline();

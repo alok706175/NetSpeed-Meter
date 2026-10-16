@@ -75,5 +75,12 @@ namespace NetSpeedMeter.Helpers
         [DllImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+        [DllImport("iphlpapi.dll", ExactSpelling = true)]
+        public static extern int GetBestInterface(uint dwDestAddr, out int pdwBestIfIndex);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool DestroyIcon(IntPtr hIcon);
     }
 }

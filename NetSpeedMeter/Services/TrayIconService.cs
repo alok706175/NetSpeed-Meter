@@ -1,6 +1,7 @@
 using System;
 using Drawing = System.Drawing;
 using WinForms = System.Windows.Forms;
+using NetSpeedMeter.Helpers;
 using NetSpeedMeter.Models;
 
 namespace NetSpeedMeter.Services
@@ -42,11 +43,23 @@ namespace NetSpeedMeter.Services
             _openSettingsAction = openSettings;
             _exitAppAction = exitApp;
 
-            _contextMenu = new WinForms.ContextMenuStrip();
+            _contextMenu = new WinForms.ContextMenuStrip
+            {
+                ShowImageMargin = false,
+                ShowCheckMargin = true,
+                DropShadowEnabled = true,
+                Font = new Drawing.Font("Segoe UI", 9.5F, Drawing.FontStyle.Regular),
+                Padding = new WinForms.Padding(4, 6, 4, 6)
+            };
+
+            ApplyMenuTheme();
+
+            _contextMenu.Opening += (_, _) => ApplyMenuTheme();
+            _settingsService.SettingsChanged += _ => ApplyMenuTheme();
 
             _openMenuItem = new WinForms.ToolStripMenuItem("Open NetSpeed Meter", null, (_, _) => _openMainWindowAction?.Invoke())
             {
-                Font = new Drawing.Font("Segoe UI", 9F, Drawing.FontStyle.Bold)
+                Font = new Drawing.Font("Segoe UI Semibold", 9.5F, Drawing.FontStyle.Bold)
             };
 
             _toggleMeterMenuItem = new WinForms.ToolStripMenuItem("Floating Meter", null, (_, _) => _toggleMeterAction?.Invoke())
@@ -234,7 +247,26 @@ namespace NetSpeedMeter.Services
             }
 
             IntPtr hIcon = bitmap.GetHicon();
-            return Drawing.Icon.FromHandle(hIcon);
+            try
+            {
+                using var tempIcon = Drawing.Icon.FromHandle(hIcon);
+                return (Drawing.Icon)tempIcon.Clone();
+            }
+            finally
+            {
+                NativeMethods.DestroyIcon(hIcon);
+            }
+        }
+
+        private void ApplyMenuTheme()
+        {
+            if (_contextMenu == null)
+            {
+                return;
+            }
+
+            bool isDark = ThemeHelper.ResolveIsDark(_settingsService.Settings.Theme);
+            _contextMenu.Renderer = new Windows11MenuRenderer(isDark);
         }
 
         public void Dispose()
